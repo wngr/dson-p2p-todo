@@ -1,8 +1,8 @@
 // ABOUTME: Priority array management using OrArray.
 // ABOUTME: Maintains ordered list of todo dots for display.
 
-use dson::transaction::MapTransaction;
 use dson::crdts::{mvreg::MvRegValue, snapshot::ToValue};
+use dson::transaction::MapTransaction;
 use dson::{Dot, OrMap};
 
 const PRIORITY_KEY: &str = "priority";
@@ -14,7 +14,11 @@ pub struct DotKey(String);
 impl DotKey {
     /// Create a DotKey from a Dot.
     pub fn new(dot: &Dot) -> Self {
-        Self(format!("{}:{}", dot.actor().node().value(), dot.sequence().get()))
+        Self(format!(
+            "{}:{}",
+            dot.actor().node().value(),
+            dot.sequence().get()
+        ))
     }
 
     /// Parse a DotKey string back into a Dot.
@@ -68,10 +72,11 @@ pub fn read_priority(store: &OrMap<String>) -> Vec<Dot> {
                 // Multi-value - take first
                 for val in item.reg.values() {
                     if let MvRegValue::String(dot_str) = val
-                        && let Some(dot) = parse_dot(dot_str) {
-                            dots.push(dot);
-                            break; // Only take first
-                        }
+                        && let Some(dot) = parse_dot(dot_str)
+                    {
+                        dots.push(dot);
+                        break; // Only take first
+                    }
                 }
             }
         }
@@ -80,11 +85,7 @@ pub fn read_priority(store: &OrMap<String>) -> Vec<Dot> {
 }
 
 /// Insert a todo at the given position in priority array.
-pub fn insert_at_priority(
-    tx: &mut MapTransaction<String>,
-    dot: &Dot,
-    position: usize,
-) {
+pub fn insert_at_priority(tx: &mut MapTransaction<String>, dot: &Dot, position: usize) {
     let dot_key = DotKey::new(dot);
     tx.in_array(PRIORITY_KEY, |arr_tx| {
         arr_tx.insert_register(position, MvRegValue::String(dot_key.into_inner()));
@@ -169,7 +170,7 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            remove_at_index(&mut tx, 1);  // Remove middle item
+            remove_at_index(&mut tx, 1); // Remove middle item
             let _ = tx.commit();
         }
 
@@ -198,6 +199,9 @@ mod tests {
 
         assert_eq!(find_priority_index(&store.store, &dot1), Some(0));
         assert_eq!(find_priority_index(&store.store, &dot2), Some(1));
-        assert_eq!(find_priority_index(&store.store, &Dot::mint(Identifier::new(99, 0), 99)), None);
+        assert_eq!(
+            find_priority_index(&store.store, &Dot::mint(Identifier::new(99, 0), 99)),
+            None
+        );
     }
 }

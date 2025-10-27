@@ -1,10 +1,10 @@
 // ABOUTME: Todo item representation and CRDT operations.
 // ABOUTME: Handles reading/writing todos using transaction API.
 
-use dson::crdts::{mvreg::MvRegValue, snapshot::ToValue};
-use dson::{Dot, OrMap};
-use dson::transaction::MapTransaction;
 use crate::priority::DotKey;
+use dson::crdts::{mvreg::MvRegValue, snapshot::ToValue};
+use dson::transaction::MapTransaction;
+use dson::{Dot, OrMap};
 
 /// Todo item read from CRDT.
 /// Fields may have multiple concurrent values due to conflicts.
@@ -67,7 +67,9 @@ fn extract_string_values(map: &dson::OrMap<String>, key: &str) -> Vec<String> {
     }
 
     // Multi-value case
-    field.reg.values()
+    field
+        .reg
+        .values()
         .into_iter()
         .filter_map(|v| match v {
             MvRegValue::String(s) => Some(s.clone()),
@@ -89,7 +91,9 @@ fn extract_bool_values(map: &dson::OrMap<String>, key: &str) -> Vec<bool> {
     }
 
     // Multi-value case
-    field.reg.values()
+    field
+        .reg
+        .values()
         .into_iter()
         .filter_map(|v| match v {
             MvRegValue::Bool(b) => Some(*b),
@@ -99,11 +103,7 @@ fn extract_bool_values(map: &dson::OrMap<String>, key: &str) -> Vec<bool> {
 }
 
 /// Create a new todo with the given text at the specified dot key.
-pub fn create_todo(
-    tx: &mut MapTransaction<String>,
-    dot_key: &DotKey,
-    text: String,
-) {
+pub fn create_todo(tx: &mut MapTransaction<String>, dot_key: &DotKey, text: String) {
     tx.in_map(dot_key.as_str(), |todo_tx| {
         todo_tx.write_register("text", MvRegValue::String(text));
         todo_tx.write_register("done", MvRegValue::Bool(false));
@@ -111,22 +111,14 @@ pub fn create_todo(
 }
 
 /// Update the text of an existing todo.
-pub fn update_text(
-    tx: &mut MapTransaction<String>,
-    dot_key: &DotKey,
-    new_text: String,
-) {
+pub fn update_text(tx: &mut MapTransaction<String>, dot_key: &DotKey, new_text: String) {
     tx.in_map(dot_key.as_str(), |todo_tx| {
         todo_tx.write_register("text", MvRegValue::String(new_text));
     });
 }
 
 /// Set the done status of a todo.
-pub fn set_done(
-    tx: &mut MapTransaction<String>,
-    dot_key: &DotKey,
-    done: bool,
-) {
+pub fn set_done(tx: &mut MapTransaction<String>, dot_key: &DotKey, done: bool) {
     tx.in_map(dot_key.as_str(), |todo_tx| {
         todo_tx.write_register("done", MvRegValue::Bool(done));
     });
@@ -135,8 +127,8 @@ pub fn set_done(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dson::{CausalDotStore, Identifier, OrMap};
     use dson::crdts::mvreg::MvRegValue;
+    use dson::{CausalDotStore, Identifier, OrMap};
 
     type TodoStore = CausalDotStore<OrMap<String>>;
 

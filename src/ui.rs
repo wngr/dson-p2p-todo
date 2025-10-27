@@ -1,24 +1,24 @@
 // ABOUTME: Terminal UI rendering using ratatui.
 // ABOUTME: Displays todos, status bar, and help text.
 
+use crate::app::{App, Mode};
 use ratatui::{
+    Frame,
     layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph},
-    Frame,
 };
-use crate::app::{App, Mode};
 
 /// Draw the entire UI.
 pub fn draw(f: &mut Frame, app: &mut App) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),  // Status bar
-            Constraint::Min(0),     // Todo list
-            Constraint::Length(8),  // Log window + context
-            Constraint::Length(3),  // Help text
+            Constraint::Length(3), // Status bar
+            Constraint::Min(0),    // Todo list
+            Constraint::Length(8), // Log window + context
+            Constraint::Length(3), // Help text
         ])
         .split(f.area());
 
@@ -29,8 +29,8 @@ pub fn draw(f: &mut Frame, app: &mut App) {
     let log_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(67),  // Logs
-            Constraint::Percentage(33),  // Context
+            Constraint::Percentage(67), // Logs
+            Constraint::Percentage(33), // Context
         ])
         .split(chunks[2]);
 
@@ -48,8 +48,8 @@ fn draw_status(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         app.replica_id, app.port, isolation_status
     );
 
-    let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title("Status"));
+    let paragraph =
+        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Status"));
 
     f.render_widget(paragraph, area);
 }
@@ -75,7 +75,9 @@ fn draw_list(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
             let content = format!("{checkbox} {conflict_indicator}{text}");
 
             let style = if i == app.ui_state.selected_index {
-                Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
@@ -89,29 +91,33 @@ fn draw_list(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
         Mode::Normal => "Todos",
         Mode::Insert => {
             let input = &app.ui_state.input_buffer;
-            let edit_mode = if app.ui_state.editing_dot.is_some() { "Edit" } else { "Add" };
+            let edit_mode = if app.ui_state.editing_dot.is_some() {
+                "Edit"
+            } else {
+                "Add"
+            };
             return draw_insert_mode(f, area, input, edit_mode);
         }
     };
 
-    let list = List::new(items)
-        .block(Block::default().borders(Borders::ALL).title(title));
+    let list = List::new(items).block(Block::default().borders(Borders::ALL).title(title));
 
     f.render_widget(list, area);
 }
 
 /// Draw the insert mode UI.
 fn draw_insert_mode(f: &mut Frame, area: ratatui::layout::Rect, input: &str, mode: &str) {
-    let text = vec![
-        Line::from(vec![
-            Span::styled(format!("{mode} Todo: "), Style::default().add_modifier(Modifier::BOLD)),
-            Span::raw(input),
-            Span::styled("_", Style::default().add_modifier(Modifier::SLOW_BLINK)),
-        ]),
-    ];
+    let text = vec![Line::from(vec![
+        Span::styled(
+            format!("{mode} Todo: "),
+            Style::default().add_modifier(Modifier::BOLD),
+        ),
+        Span::raw(input),
+        Span::styled("_", Style::default().add_modifier(Modifier::SLOW_BLINK)),
+    ])];
 
-    let paragraph = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title("Insert Mode"));
+    let paragraph =
+        Paragraph::new(text).block(Block::default().borders(Borders::ALL).title("Insert Mode"));
 
     f.render_widget(paragraph, area);
 }
@@ -122,9 +128,13 @@ fn draw_logs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let visible_lines = area.height.saturating_sub(2) as usize;
 
     // Calculate the range of logs to display based on scroll position
-    let scroll_offset = app.ui_state.log_scroll.min(total_logs.saturating_sub(visible_lines));
+    let scroll_offset = app
+        .ui_state
+        .log_scroll
+        .min(total_logs.saturating_sub(visible_lines));
 
-    let log_lines: Vec<Line> = app.log_buffer
+    let log_lines: Vec<Line> = app
+        .log_buffer
         .iter()
         .rev()
         .skip(scroll_offset)
@@ -166,13 +176,17 @@ fn draw_logs(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     // Add scroll indicator to title
     let title = if total_logs > visible_lines {
-        format!("Network Logs (↑↓ scroll {}/{})", scroll_offset, total_logs.saturating_sub(visible_lines))
+        format!(
+            "Network Logs (↑↓ scroll {}/{})",
+            scroll_offset,
+            total_logs.saturating_sub(visible_lines)
+        )
     } else {
         "Network Logs".to_string()
     };
 
-    let paragraph = Paragraph::new(log_lines)
-        .block(Block::default().borders(Borders::ALL).title(title));
+    let paragraph =
+        Paragraph::new(log_lines).block(Block::default().borders(Borders::ALL).title(title));
 
     f.render_widget(paragraph, area);
 }
@@ -187,16 +201,22 @@ fn draw_context(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     for dot in app.store.context.dots() {
         let node = dot.actor().node().value();
         let seq = dot.sequence().get();
-        node_seqs.entry(node).and_modify(|max| {
-            if seq > *max {
-                *max = seq;
-            }
-        }).or_insert(seq);
+        node_seqs
+            .entry(node)
+            .and_modify(|max| {
+                if seq > *max {
+                    *max = seq;
+                }
+            })
+            .or_insert(seq);
     }
 
     // Build the display lines
     let mut lines = Vec::new();
-    lines.push(Line::from(Span::styled("Node → Seq", Style::default().add_modifier(Modifier::BOLD))));
+    lines.push(Line::from(Span::styled(
+        "Node → Seq",
+        Style::default().add_modifier(Modifier::BOLD),
+    )));
 
     for (node, seq) in node_seqs.iter() {
         let line_str = format!("{node:02x} → {seq}");
@@ -206,8 +226,11 @@ fn draw_context(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     // TODO: Add missing dots detection if needed
     // For now, just show the version vector
 
-    let paragraph = Paragraph::new(lines)
-        .block(Block::default().borders(Borders::ALL).title("Causal Context"));
+    let paragraph = Paragraph::new(lines).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .title("Causal Context"),
+    );
 
     f.render_widget(paragraph, area);
 }
@@ -218,13 +241,11 @@ fn draw_help(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         Mode::Normal => {
             "q: quit | i: add | r: random | Enter: edit | j/k: nav | J/K: priority | ↑↓: scroll logs | space: toggle | d: delete | p: isolate"
         }
-        Mode::Insert => {
-            "Enter: save | Esc: cancel"
-        }
+        Mode::Insert => "Enter: save | Esc: cancel",
     };
 
-    let paragraph = Paragraph::new(help_text)
-        .block(Block::default().borders(Borders::ALL).title("Help"));
+    let paragraph =
+        Paragraph::new(help_text).block(Block::default().borders(Borders::ALL).title("Help"));
 
     f.render_widget(paragraph, area);
 }

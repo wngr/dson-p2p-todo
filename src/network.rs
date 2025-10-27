@@ -1,11 +1,11 @@
 // ABOUTME: UDP broadcast networking for delta synchronization.
 // ABOUTME: Supports network isolation toggle for partition testing.
 
-use std::net::{SocketAddr, UdpSocket};
-use std::io;
-use serde::{Serialize, Deserialize};
-use dson::{CausalDotStore, OrMap, Delta};
 use crate::app::ReplicaId;
+use dson::{CausalDotStore, Delta, OrMap};
+use serde::{Deserialize, Serialize};
+use std::io;
+use std::net::{SocketAddr, UdpSocket};
 
 pub const DEFAULT_PORT: u16 = 7878;
 
@@ -37,8 +37,8 @@ impl NetworkMessage {
 /// Binds to the specified port for receiving, and allows broadcasting to any port.
 /// Uses SO_REUSEPORT on macOS/BSD to allow multiple instances on the same port.
 pub fn create_broadcast_socket(port: u16) -> io::Result<UdpSocket> {
-    use std::net::{SocketAddrV4, Ipv4Addr};
-    use socket2::{Socket, Domain, Type};
+    use socket2::{Domain, Socket, Type};
+    use std::net::{Ipv4Addr, SocketAddrV4};
 
     // Create socket with socket2 to set SO_REUSEPORT before binding
     // On macOS/BSD, SO_REUSEPORT allows multiple processes to bind to the same port
@@ -48,32 +48,32 @@ pub fn create_broadcast_socket(port: u16) -> io::Result<UdpSocket> {
     #[cfg(unix)]
     socket.set_reuse_port(true)?;
 
-//    // On Unix systems (including macOS), we need SO_REUSEPORT for this to work
-//    #[cfg(unix)]
-//    {
-//        use std::os::unix::io::AsRawFd;
-//        let fd = socket.as_raw_fd();
-//        // SAFETY: This unsafe block sets SO_REUSEPORT socket option.
-//        // - The socket fd is valid: we just created it above and have exclusive ownership
-//        // - optval is a valid c_int on the stack with correct alignment
-//        // - The size passed matches the actual size of optval
-//        // - SO_REUSEPORT (libc::SO_REUSEPORT) is a valid socket option on Unix platforms
-//        // - setsockopt is being called with the correct level (SOL_SOCKET) and option
-//        // - The function will not modify optval, only read it
-//        unsafe {
-//            let optval: libc::c_int = 1;
-//            let ret = libc::setsockopt(
-//                fd,
-//                libc::SOL_SOCKET,
-//                libc::SO_REUSEPORT,
-//                &optval as *const _ as *const libc::c_void,
-//                std::mem::size_of_val(&optval) as libc::socklen_t,
-//            );
-//            if ret != 0 {
-//                return Err(io::Error::last_os_error());
-//            }
-//        }
-//    }
+    //    // On Unix systems (including macOS), we need SO_REUSEPORT for this to work
+    //    #[cfg(unix)]
+    //    {
+    //        use std::os::unix::io::AsRawFd;
+    //        let fd = socket.as_raw_fd();
+    //        // SAFETY: This unsafe block sets SO_REUSEPORT socket option.
+    //        // - The socket fd is valid: we just created it above and have exclusive ownership
+    //        // - optval is a valid c_int on the stack with correct alignment
+    //        // - The size passed matches the actual size of optval
+    //        // - SO_REUSEPORT (libc::SO_REUSEPORT) is a valid socket option on Unix platforms
+    //        // - setsockopt is being called with the correct level (SOL_SOCKET) and option
+    //        // - The function will not modify optval, only read it
+    //        unsafe {
+    //            let optval: libc::c_int = 1;
+    //            let ret = libc::setsockopt(
+    //                fd,
+    //                libc::SOL_SOCKET,
+    //                libc::SO_REUSEPORT,
+    //                &optval as *const _ as *const libc::c_void,
+    //                std::mem::size_of_val(&optval) as libc::socklen_t,
+    //            );
+    //            if ret != 0 {
+    //                return Err(io::Error::last_os_error());
+    //            }
+    //        }
+    //    }
 
     socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;
@@ -103,7 +103,10 @@ const MAX_UDP_PACKET_SIZE: usize = 65536;
 /// Try to receive a message from the network (non-blocking).
 /// If isolated is true, returns Ok(None) without reading (simulates network partition).
 /// Returns Ok(None) if no message is available (WouldBlock).
-pub fn try_receive(socket: &UdpSocket, isolated: bool) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
+pub fn try_receive(
+    socket: &UdpSocket,
+    isolated: bool,
+) -> io::Result<Option<(Vec<u8>, SocketAddr)>> {
     if isolated {
         // Silently drop when isolated
         return Ok(None);
@@ -140,7 +143,10 @@ mod tests {
         let mut store = CausalDotStore::<OrMap<String>>::default();
         let id = Identifier::new(1, 0);
         let mut tx = store.transact(id);
-        tx.write_register("test", dson::crdts::mvreg::MvRegValue::String("hello".to_string()));
+        tx.write_register(
+            "test",
+            dson::crdts::mvreg::MvRegValue::String("hello".to_string()),
+        );
         let delta = tx.commit();
 
         let msg = NetworkMessage::Delta {

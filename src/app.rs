@@ -1,12 +1,12 @@
 // ABOUTME: Application state management and network synchronization.
 // ABOUTME: Coordinates CRDT store, network layer, and UI state.
 
+use crate::anti_entropy::{AntiEntropy, SyncNeeded};
+use crate::network::{self, NetworkMessage};
+use crate::todo::Todo;
+use dson::{CausalDotStore, Dot, Identifier, OrMap};
 use std::io;
 use std::net::UdpSocket;
-use dson::{CausalDotStore, Identifier, OrMap, Dot};
-use crate::todo::Todo;
-use crate::network::{self, NetworkMessage};
-use crate::anti_entropy::{AntiEntropy, SyncNeeded};
 
 type TodoStore = CausalDotStore<OrMap<String>>;
 
@@ -25,7 +25,8 @@ impl ReplicaId {
         let id = (std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .expect("system clock should be after Unix epoch")
-            .as_secs() % 256) as u8;
+            .as_secs()
+            % 256) as u8;
         Self(id)
     }
 
@@ -166,7 +167,10 @@ impl App {
 
         // If we just reconnected, broadcast our entire state
         if was_isolated && !self.network_isolated {
-            self.log(format!("[Replica {}] Reconnecting - broadcasting full state", self.replica_id));
+            self.log(format!(
+                "[Replica {}] Reconnecting - broadcasting full state",
+                self.replica_id
+            ));
 
             // Serialize the entire store and broadcast it
             let msg = NetworkMessage::Delta {
@@ -175,8 +179,11 @@ impl App {
             };
 
             let data = network::serialize_message(&msg)?;
-            self.log(format!("[Replica {}] Broadcasting full state: {} bytes",
-                             self.replica_id, data.len()));
+            self.log(format!(
+                "[Replica {}] Broadcasting full state: {} bytes",
+                self.replica_id,
+                data.len()
+            ));
             network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
         }
 
@@ -219,8 +226,12 @@ impl App {
         };
 
         let data = network::serialize_message(&msg)?;
-        self.log(format!("[Replica {}] Broadcasting delta {} bytes (isolated: {})",
-                         self.replica_id, data.len(), self.network_isolated));
+        self.log(format!(
+            "[Replica {}] Broadcasting delta {} bytes (isolated: {})",
+            self.replica_id,
+            data.len(),
+            self.network_isolated
+        ));
         network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
         Ok(())
     }
@@ -233,7 +244,10 @@ impl App {
         };
 
         let data = network::serialize_message(&msg)?;
-        self.log(format!("[Replica {}] Broadcasting context for anti-entropy", self.replica_id));
+        self.log(format!(
+            "[Replica {}] Broadcasting context for anti-entropy",
+            self.replica_id
+        ));
         network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
         Ok(())
     }
@@ -244,8 +258,12 @@ impl App {
         let mut count = 0;
 
         while let Some((data, addr)) = network::try_receive(&self.socket, self.network_isolated)? {
-            self.log(format!("[Replica {}] Received {} bytes from {}",
-                             self.replica_id, data.len(), addr));
+            self.log(format!(
+                "[Replica {}] Received {} bytes from {}",
+                self.replica_id,
+                data.len(),
+                addr
+            ));
             match network::deserialize_message(&data) {
                 Ok(msg) => {
                     if msg.sender_id() == self.replica_id {
@@ -254,38 +272,45 @@ impl App {
 
                     match msg {
                         NetworkMessage::Delta { sender_id, delta } => {
-                            self.log(format!("[Replica {}] Delta from replica {}",
-                                           self.replica_id, sender_id));
-                            self.store.join_or_replace_with(delta.0.store, &delta.0.context);
+                            self.log(format!("[Replica {}] Received delta", sender_id));
+                            self.store
+                                .join_or_replace_with(delta.0.store, &delta.0.context);
                             count += 1;
-                            self.log(format!("[Replica {}] Applied delta from {}",
-                                           self.replica_id, sender_id));
+                            self.log(format!("[Replica {}] Applied delta", sender_id));
                         }
                         NetworkMessage::Context { sender_id, context } => {
-                            self.log(format!("[Replica {}] Context from replica {}",
-                                           self.replica_id, sender_id));
+                            self.log(format!("[Replica {}] Received context", sender_id));
 
                             // Compare contexts and decide what to do
-                            let sync_needed = AntiEntropy::compare_contexts(&self.store.context, &context);
+                            let sync_needed =
+                                AntiEntropy::compare_contexts(&self.store.context, &context);
                             match sync_needed {
                                 SyncNeeded::InSync => {
-                                    self.log(format!("[Replica {}] In sync with {}",
-                                                   self.replica_id, sender_id));
+                                    self.log(format!("[Replica {}] Already in sync", sender_id));
                                 }
                                 SyncNeeded::RemoteNeedsSync | SyncNeeded::BothNeedSync => {
-                                    self.log(format!("[Replica {}] Replica {} needs sync, sending full state",
-                                                   self.replica_id, sender_id));
+                                    self.log(format!(
+                                        "[Replica {}] Needs sync, sending full state",
+                                        sender_id
+                                    ));
                                     // They're missing operations, send our full state
                                     let msg = NetworkMessage::Delta {
                                         sender_id: self.replica_id,
                                         delta: dson::Delta(self.store.clone()),
                                     };
                                     let data = network::serialize_message(&msg)?;
-                                    network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
+                                    network::broadcast(
+                                        &self.socket,
+                                        &data,
+                                        self.port,
+                                        self.network_isolated,
+                                    )?;
                                 }
                                 SyncNeeded::LocalNeedsSync => {
-                                    self.log(format!("[Replica {}] We need sync from {} (waiting for their delta)",
-                                                   self.replica_id, sender_id));
+                                    self.log(format!(
+                                        "[Replica {}] Has updates for us (waiting for delta)",
+                                        sender_id
+                                    ));
                                     // We're missing operations - they'll send us their state when they see our context
                                 }
                             }
@@ -351,7 +376,10 @@ impl App {
             self.broadcast_delta(delta)?;
         }
 
-        self.log(format!("[Replica {}] Added 3 random Star Wars todos", self.replica_id));
+        self.log(format!(
+            "[Replica {}] Added 3 random Star Wars todos",
+            self.replica_id
+        ));
         Ok(())
     }
 }

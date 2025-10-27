@@ -1,9 +1,9 @@
 // ABOUTME: Keyboard input handling and action execution.
 // ABOUTME: Maps key events to app state changes and CRDT operations.
 
-use std::io;
-use crossterm::event::{KeyCode, KeyEvent};
 use crate::app::{App, Mode};
+use crossterm::event::{KeyCode, KeyEvent};
+use std::io;
 
 /// User actions triggered by keyboard input.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -137,19 +137,20 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
         Action::Delete => {
             let todos = app.get_todos_ordered();
             if let Some((dot, _)) = todos.get(app.ui_state.selected_index)
-                && let Some(index) = crate::priority::find_priority_index(&app.store.store, dot) {
-                    let mut tx = app.store.transact(app.identifier());
-                    crate::priority::remove_at_index(&mut tx, index);
-                    let delta = tx.commit();
+                && let Some(index) = crate::priority::find_priority_index(&app.store.store, dot)
+            {
+                let mut tx = app.store.transact(app.identifier());
+                crate::priority::remove_at_index(&mut tx, index);
+                let delta = tx.commit();
 
-                    app.broadcast_delta(delta)?;
+                app.broadcast_delta(delta)?;
 
-                    // Adjust selection if needed
-                    let todos_after = app.get_todos_ordered();
-                    if app.ui_state.selected_index >= todos_after.len() && !todos_after.is_empty() {
-                        app.ui_state.selected_index = todos_after.len() - 1;
-                    }
+                // Adjust selection if needed
+                let todos_after = app.get_todos_ordered();
+                if app.ui_state.selected_index >= todos_after.len() && !todos_after.is_empty() {
+                    app.ui_state.selected_index = todos_after.len() - 1;
                 }
+            }
             Ok(())
         }
         Action::EnterInsertMode => {
@@ -195,18 +196,20 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                 let (dot, _) = &todos[idx];
 
                 // Read current position
-                if let Some(current_pos) = crate::priority::find_priority_index(&app.store.store, dot)
-                    && current_pos > 0 {
-                        // Move up in priority (lower index)
-                        let mut tx = app.store.transact(app.identifier());
-                        crate::priority::remove_at_index(&mut tx, current_pos);
-                        crate::priority::insert_at_priority(&mut tx, dot, current_pos - 1);
-                        let delta = tx.commit();
-                        app.broadcast_delta(delta)?;
+                if let Some(current_pos) =
+                    crate::priority::find_priority_index(&app.store.store, dot)
+                    && current_pos > 0
+                {
+                    // Move up in priority (lower index)
+                    let mut tx = app.store.transact(app.identifier());
+                    crate::priority::remove_at_index(&mut tx, current_pos);
+                    crate::priority::insert_at_priority(&mut tx, dot, current_pos - 1);
+                    let delta = tx.commit();
+                    app.broadcast_delta(delta)?;
 
-                        // Update UI selection
-                        app.ui_state.selected_index -= 1;
-                    }
+                    // Update UI selection
+                    app.ui_state.selected_index -= 1;
+                }
             }
             Ok(())
         }
@@ -217,7 +220,9 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                 let (dot, _) = &todos[idx];
 
                 // Read current position
-                if let Some(current_pos) = crate::priority::find_priority_index(&app.store.store, dot) {
+                if let Some(current_pos) =
+                    crate::priority::find_priority_index(&app.store.store, dot)
+                {
                     let priority_len = crate::priority::read_priority(&app.store.store).len();
                     if current_pos + 1 < priority_len {
                         // Move down in priority (higher index)

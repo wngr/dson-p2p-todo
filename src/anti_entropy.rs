@@ -1,8 +1,8 @@
 // ABOUTME: Anti-entropy protocol for delta CRDT synchronization.
 // ABOUTME: Periodically exchanges causal contexts to detect and repair missing deltas.
 
-use std::time::{Duration, Instant};
 use dson::CausalContext;
+use std::time::{Duration, Instant};
 
 /// Anti-entropy configuration and state.
 pub struct AntiEntropy {
@@ -101,8 +101,8 @@ pub enum SyncNeeded {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use dson::{CausalDotStore, Identifier, OrMap};
     use dson::crdts::mvreg::MvRegValue;
+    use dson::{CausalDotStore, Identifier, OrMap};
 
     type TodoStore = CausalDotStore<OrMap<String>>;
 

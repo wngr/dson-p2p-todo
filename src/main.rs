@@ -98,23 +98,23 @@
 //! - `input.rs` - Keyboard handling
 //! - `anti_entropy.rs` - Partition recovery protocol
 
-mod todo;
-mod priority;
-mod network;
-mod app;
-mod ui;
-mod input;
 mod anti_entropy;
+mod app;
+mod input;
+mod network;
+mod priority;
+mod todo;
+mod ui;
 
-use std::io;
-use std::time::Duration;
+use app::App;
 use crossterm::{
     event::{self, Event},
     execute,
-    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
-use ratatui::{backend::CrosstermBackend, Terminal};
-use app::App;
+use ratatui::{Terminal, backend::CrosstermBackend};
+use std::io;
+use std::time::Duration;
 
 fn main() -> io::Result<()> {
     // Parse port from args or use default
@@ -143,27 +143,31 @@ fn main() -> io::Result<()> {
     result
 }
 
-fn run_app<B: ratatui::backend::Backend>(terminal: &mut Terminal<B>, app: &mut App) -> io::Result<()> {
+fn run_app<B: ratatui::backend::Backend>(
+    terminal: &mut Terminal<B>,
+    app: &mut App,
+) -> io::Result<()> {
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
         // Poll for events with timeout
         if event::poll(Duration::from_millis(100))?
-            && let Event::Key(key) = event::read()? {
-                match app.ui_state.mode {
-                    app::Mode::Normal => {
-                        if let Some(action) = input::handle_key(key, app) {
-                            if action == input::Action::Quit {
-                                return Ok(());
-                            }
-                            input::execute_action(app, action)?;
+            && let Event::Key(key) = event::read()?
+        {
+            match app.ui_state.mode {
+                app::Mode::Normal => {
+                    if let Some(action) = input::handle_key(key, app) {
+                        if action == input::Action::Quit {
+                            return Ok(());
                         }
-                    }
-                    app::Mode::Insert => {
-                        input::handle_insert_key(key, app)?;
+                        input::execute_action(app, action)?;
                     }
                 }
+                app::Mode::Insert => {
+                    input::handle_insert_key(key, app)?;
+                }
             }
+        }
 
         // Process network events
         app.tick()?;
