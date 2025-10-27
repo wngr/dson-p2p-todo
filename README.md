@@ -4,6 +4,8 @@ Terminal-based collaborative todo list demonstrating delta-state CRDT synchroniz
 Multiple instances communicate via UDP broadcast, automatically syncing changes and
 preserving concurrent edits as multi-value conflicts.
 
+![Demo](demo.gif)
+
 ## Quick Start
 
 All instances must use the same port (default 7878). Run multiple terminals:
