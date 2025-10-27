@@ -48,33 +48,6 @@ pub fn create_broadcast_socket(port: u16) -> io::Result<UdpSocket> {
     #[cfg(unix)]
     socket.set_reuse_port(true)?;
 
-    //    // On Unix systems (including macOS), we need SO_REUSEPORT for this to work
-    //    #[cfg(unix)]
-    //    {
-    //        use std::os::unix::io::AsRawFd;
-    //        let fd = socket.as_raw_fd();
-    //        // SAFETY: This unsafe block sets SO_REUSEPORT socket option.
-    //        // - The socket fd is valid: we just created it above and have exclusive ownership
-    //        // - optval is a valid c_int on the stack with correct alignment
-    //        // - The size passed matches the actual size of optval
-    //        // - SO_REUSEPORT (libc::SO_REUSEPORT) is a valid socket option on Unix platforms
-    //        // - setsockopt is being called with the correct level (SOL_SOCKET) and option
-    //        // - The function will not modify optval, only read it
-    //        unsafe {
-    //            let optval: libc::c_int = 1;
-    //            let ret = libc::setsockopt(
-    //                fd,
-    //                libc::SOL_SOCKET,
-    //                libc::SO_REUSEPORT,
-    //                &optval as *const _ as *const libc::c_void,
-    //                std::mem::size_of_val(&optval) as libc::socklen_t,
-    //            );
-    //            if ret != 0 {
-    //                return Err(io::Error::last_os_error());
-    //            }
-    //        }
-    //    }
-
     socket.set_broadcast(true)?;
     socket.set_nonblocking(true)?;
 

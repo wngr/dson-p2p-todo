@@ -42,44 +42,13 @@ impl AntiEntropy {
     /// Compare two causal contexts to determine if one is behind the other.
     /// Returns SyncNeeded indicating what action should be taken.
     pub fn compare_contexts(local: &CausalContext, remote: &CausalContext) -> SyncNeeded {
-        let mut local_ahead = false;
-        let mut remote_ahead = false;
+        use std::cmp::Ordering;
 
-        // Collect all unique node IDs from both contexts
-        let mut all_nodes = std::collections::BTreeSet::new();
-        for dot in local.dots() {
-            all_nodes.insert(dot.actor().node().value());
-        }
-        for dot in remote.dots() {
-            all_nodes.insert(dot.actor().node().value());
-        }
-
-        // For each node, compare the highest sequence numbers
-        for node in all_nodes {
-            let local_max = local
-                .largest_for_node(node)
-                .map(|d| d.sequence().get())
-                .max()
-                .unwrap_or(0);
-
-            let remote_max = remote
-                .largest_for_node(node)
-                .map(|d| d.sequence().get())
-                .max()
-                .unwrap_or(0);
-
-            if local_max > remote_max {
-                local_ahead = true;
-            } else if remote_max > local_max {
-                remote_ahead = true;
-            }
-        }
-
-        match (local_ahead, remote_ahead) {
-            (true, true) => SyncNeeded::BothNeedSync,
-            (true, false) => SyncNeeded::RemoteNeedsSync,
-            (false, true) => SyncNeeded::LocalNeedsSync,
-            (false, false) => SyncNeeded::InSync,
+        match local.partial_cmp(remote) {
+            Some(Ordering::Equal) => SyncNeeded::InSync,
+            Some(Ordering::Greater) => SyncNeeded::RemoteNeedsSync,
+            Some(Ordering::Less) => SyncNeeded::LocalNeedsSync,
+            None => SyncNeeded::BothNeedSync,
         }
     }
 }
