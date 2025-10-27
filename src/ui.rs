@@ -74,13 +74,18 @@ fn draw_list(f: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
 
             let content = format!("{checkbox} {conflict_indicator}{text}");
 
-            let style = if i == app.ui_state.selected_index {
+            let mut style = if i == app.ui_state.selected_index {
                 Style::default()
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
             };
+
+            // Add strikethrough for completed todos
+            if todo.primary_done() {
+                style = style.add_modifier(Modifier::CROSSED_OUT);
+            }
 
             ListItem::new(content).style(style)
         })
