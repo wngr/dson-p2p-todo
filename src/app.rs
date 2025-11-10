@@ -335,11 +335,14 @@ impl App {
         let mut rng = thread_rng();
         let selected: Vec<_> = SAMPLE_TODOS.choose_multiple(&mut rng, 3).collect();
 
-        // Add the todos
-        for text in selected.iter() {
-            let (dot_key, _dot) = self.next_dot_key();
-            let mut tx = self.store.transact(self.identifier());
+        // DEMO BEGIN #3: Array operations with self-contained state
+        // Generate unique keys for all 3 todos
+        let dot_keys: Vec<_> = selected.iter().map(|_| self.next_dot_key().0).collect();
 
+        // Create all 3 todos in a single transaction
+        let mut tx = self.store.transact(self.identifier());
+
+        for (text, dot_key) in selected.iter().zip(dot_keys.iter()) {
             // Create the todo with text and done fields
             tx.in_map(dot_key.as_str(), |todo_tx| {
                 todo_tx.write_register(
@@ -349,17 +352,18 @@ impl App {
                 todo_tx.write_register("done", dson::crdts::mvreg::MvRegValue::Bool(false));
             });
 
-            // Add to priority array at the end
+            // Add to priority array - arr_tx.len() grows with each insert!
             tx.in_array("priority", |arr_tx| {
                 arr_tx.insert_register(
                     arr_tx.len(),
-                    dson::crdts::mvreg::MvRegValue::String(dot_key.into_inner()),
+                    dson::crdts::mvreg::MvRegValue::String(dot_key.as_str().to_string()),
                 );
             });
-
-            let delta = tx.commit();
-            self.broadcast_delta(delta)?;
         }
+
+        let delta = tx.commit();
+        self.broadcast_delta(delta)?;
+        // DEMO END #3
 
         self.log(format!(
             "[Replica {}] Added 3 random Star Wars todos",

@@ -42,6 +42,7 @@ impl AntiEntropy {
         }
     }
 
+    // DEMO BEGIN #5: Anti-entropy via causal context comparison
     /// Compare two causal contexts to determine if one is behind the other.
     /// Returns SyncNeeded indicating what action should be taken.
     pub fn compare_contexts(local: &CausalContext, remote: &CausalContext) -> SyncNeeded {
@@ -51,9 +52,10 @@ impl AntiEntropy {
             Some(Ordering::Equal) => SyncNeeded::InSync,
             Some(Ordering::Greater) => SyncNeeded::RemoteNeedsSync,
             Some(Ordering::Less) => SyncNeeded::LocalNeedsSync,
-            None => SyncNeeded::BothNeedSync,
+            None => SyncNeeded::BothNeedSync, // Concurrent divergence
         }
     }
+    // DEMO END #5
 }
 
 /// Result of comparing two causal contexts.

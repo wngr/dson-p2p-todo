@@ -54,6 +54,7 @@ pub fn read_todo(store: &OrMap<String>, dot: &Dot) -> Option<Todo> {
     })
 }
 
+// DEMO BEGIN #4: Conflict extraction - DSON's multi-value registers
 /// Extract all string values from a register field.
 /// Handles both single-value and multi-value (conflict) cases.
 fn extract_string_values(map: &dson::OrMap<String>, key: &str) -> Vec<String> {
@@ -62,12 +63,12 @@ fn extract_string_values(map: &dson::OrMap<String>, key: &str) -> Vec<String> {
         None => return Vec::new(),
     };
 
-    // Try single value first
+    // Try single value first (common case)
     if let Ok(MvRegValue::String(s)) = field.reg.value() {
         return vec![s.clone()];
     }
 
-    // Multi-value case
+    // Multi-value case - DSON preserves ALL concurrent writes
     field
         .reg
         .values()
@@ -78,6 +79,7 @@ fn extract_string_values(map: &dson::OrMap<String>, key: &str) -> Vec<String> {
         })
         .collect()
 }
+// DEMO END #4
 
 /// Extract all bool values from a register field.
 fn extract_bool_values(map: &dson::OrMap<String>, key: &str) -> Vec<bool> {

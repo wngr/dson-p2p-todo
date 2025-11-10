@@ -70,6 +70,7 @@ pub fn handle_insert_key(key: KeyEvent, app: &mut App) -> io::Result<bool> {
                     let delta = tx.commit();
                     app.broadcast_delta(delta)?;
                 } else {
+                    // DEMO BEGIN #1: Complete transaction lifecycle
                     // Creating new todo - inline transaction
                     let (dot_key, _dot) = app.next_dot_key();
                     let mut tx = app.store.transact(app.identifier());
@@ -87,6 +88,7 @@ pub fn handle_insert_key(key: KeyEvent, app: &mut App) -> io::Result<bool> {
 
                     let delta = tx.commit();
                     app.broadcast_delta(delta)?;
+                    // DEMO END #1
                 }
             }
 
@@ -139,11 +141,13 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                 let new_done = !todo.primary_done();
                 let dot_key = crate::priority::DotKey::new(dot);
 
+                // DEMO BEGIN #2: Simple nested transaction
                 let mut tx = app.store.transact(app.identifier());
                 tx.in_map(dot_key.as_str(), |todo_tx| {
                     todo_tx.write_register("done", MvRegValue::Bool(new_done));
                 });
                 let delta = tx.commit();
+                // DEMO END #2
 
                 app.broadcast_delta(delta)?;
             }
