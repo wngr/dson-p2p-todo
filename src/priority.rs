@@ -4,7 +4,6 @@
 use dson::{
     Dot, OrMap,
     crdts::{mvreg::MvRegValue, snapshot::ToValue},
-    transaction::MapTransaction,
 };
 
 const PRIORITY_KEY: &str = "priority";
@@ -86,21 +85,6 @@ pub fn read_priority(store: &OrMap<String>) -> Vec<Dot> {
     dots
 }
 
-/// Insert a todo at the given position in priority array.
-pub fn insert_at_priority(tx: &mut MapTransaction<String>, dot: &Dot, position: usize) {
-    let dot_key = DotKey::new(dot);
-    tx.in_array(PRIORITY_KEY, |arr_tx| {
-        arr_tx.insert_register(position, MvRegValue::String(dot_key.into_inner()));
-    });
-}
-
-/// Remove todo at specific index from priority array.
-pub fn remove_at_index(tx: &mut MapTransaction<String>, index: usize) {
-    tx.in_array(PRIORITY_KEY, |arr_tx| {
-        arr_tx.remove(index);
-    });
-}
-
 /// Find index of a dot in the priority list.
 ///
 /// # Errors
@@ -129,7 +113,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_and_read_priority() {
+    fn test_insert_and_read_priority_inline() {
         let mut store = TodoStore::default();
         let id = Identifier::new(1, 0);
 
@@ -138,8 +122,10 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            insert_at_priority(&mut tx, &dot1, 0);
-            insert_at_priority(&mut tx, &dot2, 1);
+            tx.in_array(PRIORITY_KEY, |arr_tx| {
+                arr_tx.insert_register(0, MvRegValue::String(DotKey::new(&dot1).into_inner()));
+                arr_tx.insert_register(1, MvRegValue::String(DotKey::new(&dot2).into_inner()));
+            });
             let _ = tx.commit();
         }
 
@@ -148,7 +134,7 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_at_index() {
+    fn test_remove_at_index_inline() {
         let mut store = TodoStore::default();
         let id = Identifier::new(1, 0);
 
@@ -158,9 +144,11 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            insert_at_priority(&mut tx, &dot1, 0);
-            insert_at_priority(&mut tx, &dot2, 1);
-            insert_at_priority(&mut tx, &dot3, 2);
+            tx.in_array(PRIORITY_KEY, |arr_tx| {
+                arr_tx.insert_register(0, MvRegValue::String(DotKey::new(&dot1).into_inner()));
+                arr_tx.insert_register(1, MvRegValue::String(DotKey::new(&dot2).into_inner()));
+                arr_tx.insert_register(2, MvRegValue::String(DotKey::new(&dot3).into_inner()));
+            });
             let _ = tx.commit();
         }
 
@@ -172,7 +160,9 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            remove_at_index(&mut tx, 1); // Remove middle item
+            tx.in_array(PRIORITY_KEY, |arr_tx| {
+                arr_tx.remove(1); // Remove middle item
+            });
             let _ = tx.commit();
         }
 
@@ -194,8 +184,10 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            insert_at_priority(&mut tx, &dot1, 0);
-            insert_at_priority(&mut tx, &dot2, 1);
+            tx.in_array(PRIORITY_KEY, |arr_tx| {
+                arr_tx.insert_register(0, MvRegValue::String(DotKey::new(&dot1).into_inner()));
+                arr_tx.insert_register(1, MvRegValue::String(DotKey::new(&dot2).into_inner()));
+            });
             let _ = tx.commit();
         }
 

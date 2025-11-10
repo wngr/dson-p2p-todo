@@ -335,16 +335,28 @@ impl App {
         let mut rng = thread_rng();
         let selected: Vec<_> = SAMPLE_TODOS.choose_multiple(&mut rng, 3).collect();
 
-        // Get current priority list length to add at the end
-        let priority = crate::priority::read_priority(&self.store.store);
-        let insert_position = priority.len();
-
         // Add the todos
-        for (offset, text) in selected.iter().enumerate() {
-            let (dot_key, dot) = self.next_dot_key();
+        for text in selected.iter() {
+            let (dot_key, _dot) = self.next_dot_key();
             let mut tx = self.store.transact(self.identifier());
-            crate::todo::create_todo(&mut tx, &dot_key, text.to_string());
-            crate::priority::insert_at_priority(&mut tx, &dot, insert_position + offset);
+
+            // Create the todo with text and done fields
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register(
+                    "text",
+                    dson::crdts::mvreg::MvRegValue::String(text.to_string()),
+                );
+                todo_tx.write_register("done", dson::crdts::mvreg::MvRegValue::Bool(false));
+            });
+
+            // Add to priority array at the end
+            tx.in_array("priority", |arr_tx| {
+                arr_tx.insert_register(
+                    arr_tx.len(),
+                    dson::crdts::mvreg::MvRegValue::String(dot_key.into_inner()),
+                );
+            });
+
             let delta = tx.commit();
             self.broadcast_delta(delta)?;
         }

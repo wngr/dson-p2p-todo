@@ -3,6 +3,7 @@
 
 use crate::app::{App, Mode};
 use crossterm::event::{KeyCode, KeyEvent};
+use dson::crdts::mvreg::MvRegValue;
 use std::io;
 
 /// User actions triggered by keyboard input.
@@ -60,18 +61,30 @@ pub fn handle_insert_key(key: KeyEvent, app: &mut App) -> io::Result<bool> {
             let text = app.ui_state.input_buffer.clone();
             if !text.is_empty() {
                 if let Some(editing_dot) = app.ui_state.editing_dot.take() {
-                    // Editing existing todo
+                    // Editing existing todo - inline transaction
                     let dot_key = crate::priority::DotKey::new(&editing_dot);
                     let mut tx = app.store.transact(app.identifier());
-                    crate::todo::update_text(&mut tx, &dot_key, text);
+                    tx.in_map(dot_key.as_str(), |todo_tx| {
+                        todo_tx.write_register("text", MvRegValue::String(text));
+                    });
                     let delta = tx.commit();
                     app.broadcast_delta(delta)?;
                 } else {
-                    // Creating new todo
-                    let (dot_key, dot) = app.next_dot_key();
+                    // Creating new todo - inline transaction
+                    let (dot_key, _dot) = app.next_dot_key();
                     let mut tx = app.store.transact(app.identifier());
-                    crate::todo::create_todo(&mut tx, &dot_key, text);
-                    crate::priority::insert_at_priority(&mut tx, &dot, 0);
+
+                    // Create the todo with text and done fields
+                    tx.in_map(dot_key.as_str(), |todo_tx| {
+                        todo_tx.write_register("text", MvRegValue::String(text));
+                        todo_tx.write_register("done", MvRegValue::Bool(false));
+                    });
+
+                    // Add to priority array at top
+                    tx.in_array("priority", |arr_tx| {
+                        arr_tx.insert_register(0, MvRegValue::String(dot_key.into_inner()));
+                    });
+
                     let delta = tx.commit();
                     app.broadcast_delta(delta)?;
                 }
@@ -127,7 +140,9 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                 let dot_key = crate::priority::DotKey::new(dot);
 
                 let mut tx = app.store.transact(app.identifier());
-                crate::todo::set_done(&mut tx, &dot_key, new_done);
+                tx.in_map(dot_key.as_str(), |todo_tx| {
+                    todo_tx.write_register("done", MvRegValue::Bool(new_done));
+                });
                 let delta = tx.commit();
 
                 app.broadcast_delta(delta)?;
@@ -140,7 +155,9 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                 && let Some(index) = crate::priority::find_priority_index(&app.store.store, dot)
             {
                 let mut tx = app.store.transact(app.identifier());
-                crate::priority::remove_at_index(&mut tx, index);
+                tx.in_array("priority", |arr_tx| {
+                    arr_tx.remove(index);
+                });
                 let delta = tx.commit();
 
                 app.broadcast_delta(delta)?;
@@ -201,9 +218,15 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                     && current_pos > 0
                 {
                     // Move up in priority (lower index)
+                    let dot_key = crate::priority::DotKey::new(dot);
                     let mut tx = app.store.transact(app.identifier());
-                    crate::priority::remove_at_index(&mut tx, current_pos);
-                    crate::priority::insert_at_priority(&mut tx, dot, current_pos - 1);
+                    tx.in_array("priority", |arr_tx| {
+                        arr_tx.remove(current_pos);
+                        arr_tx.insert_register(
+                            current_pos - 1,
+                            MvRegValue::String(dot_key.into_inner()),
+                        );
+                    });
                     let delta = tx.commit();
                     app.broadcast_delta(delta)?;
 
@@ -226,9 +249,15 @@ pub fn execute_action(app: &mut App, action: Action) -> io::Result<()> {
                     let priority_len = crate::priority::read_priority(&app.store.store).len();
                     if current_pos + 1 < priority_len {
                         // Move down in priority (higher index)
+                        let dot_key = crate::priority::DotKey::new(dot);
                         let mut tx = app.store.transact(app.identifier());
-                        crate::priority::remove_at_index(&mut tx, current_pos);
-                        crate::priority::insert_at_priority(&mut tx, dot, current_pos + 1);
+                        tx.in_array("priority", |arr_tx| {
+                            arr_tx.remove(current_pos);
+                            arr_tx.insert_register(
+                                current_pos + 1,
+                                MvRegValue::String(dot_key.into_inner()),
+                            );
+                        });
                         let delta = tx.commit();
                         app.broadcast_delta(delta)?;
 

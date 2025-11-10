@@ -1,11 +1,10 @@
 // ABOUTME: Todo item representation and CRDT operations.
-// ABOUTME: Handles reading/writing todos using transaction API.
+// ABOUTME: Handles reading todos from the CRDT store.
 
 use crate::priority::DotKey;
 use dson::{
     Dot, OrMap,
     crdts::{mvreg::MvRegValue, snapshot::ToValue},
-    transaction::MapTransaction,
 };
 
 /// Todo item read from CRDT.
@@ -102,28 +101,6 @@ fn extract_bool_values(map: &dson::OrMap<String>, key: &str) -> Vec<bool> {
             _ => None,
         })
         .collect()
-}
-
-/// Create a new todo with the given text at the specified dot key.
-pub fn create_todo(tx: &mut MapTransaction<String>, dot_key: &DotKey, text: String) {
-    tx.in_map(dot_key.as_str(), |todo_tx| {
-        todo_tx.write_register("text", MvRegValue::String(text));
-        todo_tx.write_register("done", MvRegValue::Bool(false));
-    });
-}
-
-/// Update the text of an existing todo.
-pub fn update_text(tx: &mut MapTransaction<String>, dot_key: &DotKey, new_text: String) {
-    tx.in_map(dot_key.as_str(), |todo_tx| {
-        todo_tx.write_register("text", MvRegValue::String(new_text));
-    });
-}
-
-/// Set the done status of a todo.
-pub fn set_done(tx: &mut MapTransaction<String>, dot_key: &DotKey, done: bool) {
-    tx.in_map(dot_key.as_str(), |todo_tx| {
-        todo_tx.write_register("done", MvRegValue::Bool(done));
-    });
 }
 
 #[cfg(test)]
@@ -229,7 +206,7 @@ mod tests {
     }
 
     #[test]
-    fn test_create_todo() {
+    fn test_create_todo_inline() {
         let mut store = TodoStore::default();
         let id = Identifier::new(1, 0);
         let dot = Dot::mint(id, 1);
@@ -237,7 +214,10 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            create_todo(&mut tx, &dot_key, "Test todo".to_string());
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register("text", MvRegValue::String("Test todo".to_string()));
+                todo_tx.write_register("done", MvRegValue::Bool(false));
+            });
             let _delta = tx.commit();
         }
 
@@ -248,7 +228,7 @@ mod tests {
     }
 
     #[test]
-    fn test_update_text() {
+    fn test_update_text_inline() {
         let mut store = TodoStore::default();
         let id = Identifier::new(1, 0);
         let dot = Dot::mint(id, 1);
@@ -256,13 +236,18 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            create_todo(&mut tx, &dot_key, "Original".to_string());
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register("text", MvRegValue::String("Original".to_string()));
+                todo_tx.write_register("done", MvRegValue::Bool(false));
+            });
             let _delta = tx.commit();
         }
 
         {
             let mut tx = store.transact(id);
-            update_text(&mut tx, &dot_key, "Updated".to_string());
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register("text", MvRegValue::String("Updated".to_string()));
+            });
             let _delta = tx.commit();
         }
 
@@ -272,7 +257,7 @@ mod tests {
     }
 
     #[test]
-    fn test_set_done() {
+    fn test_set_done_inline() {
         let mut store = TodoStore::default();
         let id = Identifier::new(1, 0);
         let dot = Dot::mint(id, 1);
@@ -280,13 +265,18 @@ mod tests {
 
         {
             let mut tx = store.transact(id);
-            create_todo(&mut tx, &dot_key, "Test".to_string());
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register("text", MvRegValue::String("Test".to_string()));
+                todo_tx.write_register("done", MvRegValue::Bool(false));
+            });
             let _delta = tx.commit();
         }
 
         {
             let mut tx = store.transact(id);
-            set_done(&mut tx, &dot_key, true);
+            tx.in_map(dot_key.as_str(), |todo_tx| {
+                todo_tx.write_register("done", MvRegValue::Bool(true));
+            });
             let _delta = tx.commit();
         }
 
