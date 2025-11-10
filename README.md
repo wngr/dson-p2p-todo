@@ -11,9 +11,9 @@ preserving concurrent edits as multi-value conflicts.
 All instances must use the same port (default 7878). Run multiple terminals:
 
 ```bash
-cargo run --example p2p_todo    # Terminal 1
-cargo run --example p2p_todo    # Terminal 2
-cargo run --example p2p_todo    # Terminal 3
+cargo run    # Terminal 1
+cargo run    # Terminal 2
+cargo run    # Terminal 3
 ```
 
 ## Keyboard Controls
