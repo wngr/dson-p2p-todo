@@ -12,9 +12,9 @@
 //! All instances must use the same port (default 7878). Run multiple terminals:
 //!
 //! ```bash
-//! cargo run --example p2p_todo    # Terminal 1
-//! cargo run --example p2p_todo    # Terminal 2
-//! cargo run --example p2p_todo    # Terminal 3
+//! cargo run    # Terminal 1
+//! cargo run    # Terminal 2
+//! cargo run    # Terminal 3
 //! ```
 //!
 //! ## Keyboard Controls
@@ -113,8 +113,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
-use std::io;
-use std::time::Duration;
+use std::{io, time::Duration};
 
 fn main() -> io::Result<()> {
     // Parse port from args or use default
@@ -150,7 +149,7 @@ fn run_app<B: ratatui::backend::Backend>(
     loop {
         terminal.draw(|f| ui::draw(f, app))?;
 
-        // Poll for events with timeout
+        // Poll for events with timeout to allow network processing.
         if event::poll(Duration::from_millis(100))?
             && let Event::Key(key) = event::read()?
         {

@@ -1,9 +1,11 @@
 // ABOUTME: Priority array management using OrArray.
 // ABOUTME: Maintains ordered list of todo dots for display.
 
-use dson::crdts::{mvreg::MvRegValue, snapshot::ToValue};
-use dson::transaction::MapTransaction;
-use dson::{Dot, OrMap};
+use dson::{
+    Dot, OrMap,
+    crdts::{mvreg::MvRegValue, snapshot::ToValue},
+    transaction::MapTransaction,
+};
 
 const PRIORITY_KEY: &str = "priority";
 

@@ -4,8 +4,10 @@
 use crate::app::ReplicaId;
 use dson::{CausalDotStore, Delta, OrMap};
 use serde::{Deserialize, Serialize};
-use std::io;
-use std::net::{SocketAddr, UdpSocket};
+use std::{
+    io,
+    net::{SocketAddr, UdpSocket},
+};
 
 pub const DEFAULT_PORT: u16 = 7878;
 
@@ -59,6 +61,9 @@ pub fn create_broadcast_socket(port: u16) -> io::Result<UdpSocket> {
 
 /// Broadcast a message to all peers.
 /// If isolated is true, returns Ok without sending (simulates network partition).
+///
+/// # Errors
+/// Returns an error if `data.len()` exceeds the network MTU (typically ~1500 bytes for Ethernet).
 pub fn broadcast(socket: &UdpSocket, data: &[u8], port: u16, isolated: bool) -> io::Result<()> {
     if isolated {
         // Silently drop when isolated

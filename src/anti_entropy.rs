@@ -12,9 +12,12 @@ pub struct AntiEntropy {
     last_broadcast: Instant,
 }
 
+/// Default anti-entropy broadcast interval.
+const DEFAULT_INTERVAL: Duration = Duration::from_secs(10);
+
 impl Default for AntiEntropy {
     fn default() -> Self {
-        Self::new(Duration::from_secs(10))
+        Self::new(DEFAULT_INTERVAL)
     }
 }
 

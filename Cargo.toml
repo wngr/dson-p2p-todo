@@ -6,6 +6,7 @@ edition = "2024"
 [dependencies]
 crossterm = "0.29.0"
 dson = { git = "https://github.com/helsing-ai/dson", branch = "ow/tx" }
+rand = "0.8"
 ratatui = "0.29.0"
 rmp-serde = "1.3.0"
 serde = { version = "1.0.228", features = ["derive"] }

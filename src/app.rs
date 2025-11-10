@@ -1,12 +1,13 @@
 // ABOUTME: Application state management and network synchronization.
 // ABOUTME: Coordinates CRDT store, network layer, and UI state.
 
-use crate::anti_entropy::{AntiEntropy, SyncNeeded};
-use crate::network::{self, NetworkMessage};
-use crate::todo::Todo;
+use crate::{
+    anti_entropy::{AntiEntropy, SyncNeeded},
+    network::{self, NetworkMessage},
+    todo::Todo,
+};
 use dson::{CausalDotStore, Dot, Identifier, OrMap};
-use std::io;
-use std::net::UdpSocket;
+use std::{io, net::UdpSocket};
 
 type TodoStore = CausalDotStore<OrMap<String>>;
 
@@ -15,6 +16,7 @@ type TodoStore = CausalDotStore<OrMap<String>>;
 pub struct ReplicaId(u8);
 
 impl ReplicaId {
+    #[allow(unused)]
     /// Create a new ReplicaId.
     pub fn new(id: u8) -> Self {
         Self(id)
@@ -45,38 +47,38 @@ impl std::fmt::Display for ReplicaId {
 /// Maximum number of log messages to keep in the buffer.
 const MAX_LOG_MESSAGES: usize = 50;
 
-/// Star Wars themed sample todos
+/// Star Wars themed sample todos.
 const SAMPLE_TODOS: &[&str] = &[
-    "Train with Yoda on Dagobah",
-    "Repair the hyperdrive motivator",
-    "Negotiate trade agreements with the Hutts",
-    "Deliver death star plans to Rebellion",
-    "Practice lightsaber forms in training room",
-    "Calibrate targeting computer for trench run",
-    "Schedule inspection of shield generator",
-    "Update astromech droid memory banks",
-    "Attend Jedi Council meeting",
-    "Investigate disturbance in the Force",
-    "Stock up on power converters at Tosche Station",
-    "Complete Kessel Run in less than 12 parsecs",
-    "Escape from trash compactor on detention level",
-    "Rescue princess from cell block 1138",
-    "Disable tractor beam on battle station",
-    "Navigate asteroid field near Hoth",
-    "Establish new base on remote ice planet",
-    "Recruit smugglers at Mos Eisley cantina",
-    "Investigate Imperial presence on Endor",
-    "Sabotage AT-AT walker defense systems",
-    "Infiltrate Imperial garrison disguised as scout",
-    "Reprogram protocol droid for Binary language",
-    "Hunt for bounties in Outer Rim territories",
-    "Evade Star Destroyer pursuit through nebula",
-    "Restore balance to the Force",
-    "Negotiate release of carbonite frozen smuggler",
-    "Study ancient Jedi texts in temple archives",
-    "Upgrade X-wing fighter with proton torpedoes",
-    "Attend diplomatic mission to Cloud City",
-    "Investigate Sith artifact on Moraband",
+    "Train with the Jedi master",
+    "Fix the spaceship engine",
+    "Deliver secret plans to the rebels",
+    "Practice with the laser sword",
+    "Rescue the princess from the space station",
+    "Disable the tractor beam",
+    "Navigate through the asteroid field",
+    "Escape the trash compactor",
+    "Attend the galactic senate meeting",
+    "Learn to use the Force",
+    "Repair the robot companion",
+    "Complete the smuggling run",
+    "Establish rebel base on ice planet",
+    "Find a good cantina for drinks",
+    "Evade the Empire's warships",
+    "Study ancient galactic history",
+    "Upgrade the starfighter weapons",
+    "Negotiate with space gangsters",
+    "Investigate the mysterious energy field",
+    "Defrost friend from carbonite",
+    "Sabotage the giant walking tanks",
+    "Recruit pilots for the rebellion",
+    "Destroy the moon-sized weapon",
+    "Train the new generation of heroes",
+    "Explore the desert planet",
+    "Meet with the galactic emperor",
+    "Hide from the bounty hunters",
+    "Build a new lightsaber",
+    "Convince the smuggler to help",
+    "Stop the evil empire's plans",
 ];
 
 /// UI state for navigation and interaction.
@@ -160,33 +162,8 @@ impl App {
     }
 
     /// Toggle network isolation state.
-    /// When switching from isolated to connected, broadcasts current state.
     pub fn toggle_isolation(&mut self) -> io::Result<()> {
-        let was_isolated = self.network_isolated;
         self.network_isolated = !self.network_isolated;
-
-        // If we just reconnected, broadcast our entire state
-        if was_isolated && !self.network_isolated {
-            self.log(format!(
-                "[Replica {}] Reconnecting - broadcasting full state",
-                self.replica_id
-            ));
-
-            // Serialize the entire store and broadcast it
-            let msg = NetworkMessage::Delta {
-                sender_id: self.replica_id,
-                delta: dson::Delta(self.store.clone()),
-            };
-
-            let data = network::serialize_message(&msg)?;
-            self.log(format!(
-                "[Replica {}] Broadcasting full state: {} bytes",
-                self.replica_id,
-                data.len()
-            ));
-            network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
-        }
-
         Ok(())
     }
 
@@ -226,13 +203,13 @@ impl App {
         };
 
         let data = network::serialize_message(&msg)?;
+        network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
         self.log(format!(
-            "[Replica {}] Broadcasting delta {} bytes (isolated: {})",
+            "[Replica {}] Broadcast delta: {} bytes (isolated: {})",
             self.replica_id,
             data.len(),
             self.network_isolated
         ));
-        network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
         Ok(())
     }
 
@@ -244,11 +221,12 @@ impl App {
         };
 
         let data = network::serialize_message(&msg)?;
-        self.log(format!(
-            "[Replica {}] Broadcasting context for anti-entropy",
-            self.replica_id
-        ));
         network::broadcast(&self.socket, &data, self.port, self.network_isolated)?;
+        self.log(format!(
+            "[Replica {}] Broadcast context: {} bytes",
+            self.replica_id,
+            data.len()
+        ));
         Ok(())
     }
 
@@ -258,28 +236,37 @@ impl App {
         let mut count = 0;
 
         while let Some((data, addr)) = network::try_receive(&self.socket, self.network_isolated)? {
-            self.log(format!(
-                "[Replica {}] Received {} bytes from {}",
-                self.replica_id,
-                data.len(),
-                addr
-            ));
             match network::deserialize_message(&data) {
                 Ok(msg) => {
                     if msg.sender_id() == self.replica_id {
                         continue; // Ignore own messages
                     }
 
+                    self.log(format!(
+                        "[Replica {}] Received {} bytes from {}",
+                        msg.sender_id(),
+                        data.len(),
+                        addr
+                    ));
+
                     match msg {
                         NetworkMessage::Delta { sender_id, delta } => {
-                            self.log(format!("[Replica {}] Received delta", sender_id));
+                            self.log(format!(
+                                "[Replica {}] Received delta: {} bytes",
+                                sender_id,
+                                data.len()
+                            ));
                             self.store
                                 .join_or_replace_with(delta.0.store, &delta.0.context);
                             count += 1;
                             self.log(format!("[Replica {}] Applied delta", sender_id));
                         }
                         NetworkMessage::Context { sender_id, context } => {
-                            self.log(format!("[Replica {}] Received context", sender_id));
+                            self.log(format!(
+                                "[Replica {}] Received context: {} bytes",
+                                sender_id,
+                                data.len()
+                            ));
 
                             // Compare contexts and decide what to do
                             let sync_needed =
@@ -289,10 +276,6 @@ impl App {
                                     self.log(format!("[Replica {}] Already in sync", sender_id));
                                 }
                                 SyncNeeded::RemoteNeedsSync | SyncNeeded::BothNeedSync => {
-                                    self.log(format!(
-                                        "[Replica {}] Needs sync, sending full state",
-                                        sender_id
-                                    ));
                                     // They're missing operations, send our full state
                                     let msg = NetworkMessage::Delta {
                                         sender_id: self.replica_id,
@@ -305,6 +288,11 @@ impl App {
                                         self.port,
                                         self.network_isolated,
                                     )?;
+                                    self.log(format!(
+                                        "[Replica {}] Needs sync, sent full state: {} bytes",
+                                        sender_id,
+                                        data.len()
+                                    ));
                                 }
                                 SyncNeeded::LocalNeedsSync => {
                                     self.log(format!(
@@ -341,26 +329,11 @@ impl App {
 
     /// Add 3 random Star Wars themed todos to the bottom of the list.
     pub fn add_random_todos(&mut self) -> io::Result<()> {
-        use std::collections::HashSet;
+        use rand::{seq::SliceRandom, thread_rng};
 
-        // Use current time as seed for randomness
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .expect("system clock should be after Unix epoch")
-            .as_nanos() as usize;
-
-        // Pick 3 unique random indices
-        let mut used = HashSet::new();
-        let mut selected = Vec::new();
-
-        for i in 0..3 {
-            let mut idx = (seed + i * 7919) % SAMPLE_TODOS.len();
-            while used.contains(&idx) {
-                idx = (idx + 1) % SAMPLE_TODOS.len();
-            }
-            used.insert(idx);
-            selected.push(SAMPLE_TODOS[idx]);
-        }
+        // Pick 3 unique random todos
+        let mut rng = thread_rng();
+        let selected: Vec<_> = SAMPLE_TODOS.choose_multiple(&mut rng, 3).collect();
 
         // Get current priority list length to add at the end
         let priority = crate::priority::read_priority(&self.store.store);

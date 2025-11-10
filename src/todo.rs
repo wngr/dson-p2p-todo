@@ -2,9 +2,11 @@
 // ABOUTME: Handles reading/writing todos using transaction API.
 
 use crate::priority::DotKey;
-use dson::crdts::{mvreg::MvRegValue, snapshot::ToValue};
-use dson::transaction::MapTransaction;
-use dson::{Dot, OrMap};
+use dson::{
+    Dot, OrMap,
+    crdts::{mvreg::MvRegValue, snapshot::ToValue},
+    transaction::MapTransaction,
+};
 
 /// Todo item read from CRDT.
 /// Fields may have multiple concurrent values due to conflicts.
