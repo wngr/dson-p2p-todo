@@ -243,8 +243,9 @@ dependencies = [
 
 [[package]]
 name = "dson"
-version = "0.2.0"
-source = "git+https://github.com/helsing-ai/dson?branch=ow%2Ftx#bf7add114fea990579db3e05d7d59675cda23990"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14a9230a28c73ae3708fc52c4f1609ea96454b297f52faa09ad39e00a8cd4e9a"
 dependencies = [
  "ahash",
  "base64",
